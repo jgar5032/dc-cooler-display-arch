@@ -1,0 +1,3 @@
+post_install() {
+  printf '%s\n' 'Start DC Cooler Display now and at boot with sudo systemctl enable --now deepcool-digital.service'
+}

@@ -1,0 +1,75 @@
+#!/usr/bin/python3
+"""Start DC Cooler Display or its settings window."""
+
+import argparse
+from dataclasses import replace
+import logging
+from pathlib import Path
+import signal
+import sys
+
+from deepcool_digital.display import hid_devices, run_display
+from deepcool_digital.settings import CONFIG_PATH, DEVICES, MODES, usb_id
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Show CPU temperature and usage on a DeepCool USB display.")
+    parser.add_argument("-d", "--device", type=str.upper, choices=("AUTO", *DEVICES, "CUSTOM"))
+    parser.add_argument("-i", "--interval", type=float, help="seconds between updates (default: 1)")
+    parser.add_argument("--flip-interval", type=float, help="seconds between mode changes (default: 8)")
+    parser.add_argument("--mode", choices=MODES, help="display mode (default: both)")
+    parser.add_argument("-v", "--vendor", type=usb_id, help="USB vendor ID override, e.g. 0x3633")
+    parser.add_argument("-p", "--product", type=usb_id, help="USB product ID override, e.g. 0x0004")
+    parser.add_argument("-t", "--test", action="store_true", help="send random readings")
+    parser.add_argument("--debug", action="store_true", help="log readings")
+    parser.add_argument("--dry-run", action="store_true", help="print reports without opening the display")
+    parser.add_argument("--once", action="store_true", help="send or preview a single update and exit")
+    parser.add_argument("--list-devices", action="store_true", help="list attached displays with supported USB IDs")
+    parser.add_argument("--gui", action="store_true", help="open the settings window")
+    parser.add_argument("--config", type=Path, default=CONFIG_PATH, help="settings file path")
+    args = parser.parse_args()
+
+    if args.list_devices:
+        devices = [device for device in hid_devices() if device.profile != "CUSTOM"]
+        for device in devices:
+            print(f"{device.profile} {device.vendor:04x}:{device.product:04x} {device.path} ({device.name})")
+        if not devices:
+            print("No supported DeepCool USB displays detected.", file=sys.stderr)
+        return 0
+    if args.gui:
+        try:
+            from deepcool_digital.gui import run
+        except (ImportError, ValueError):
+            parser.exit(1, "The settings window requires the Arch packages gtk4 and python-gobject.\n")
+        return run(args.config)
+
+    def overrides(settings):
+        values = {
+            key: getattr(args, key)
+            for key in ("device", "mode", "interval", "flip_interval", "vendor", "product")
+            if getattr(args, key) is not None
+        }
+        if args.device is not None:
+            values.setdefault("vendor", None)
+            values.setdefault("product", None)
+        elif settings.device == "AUTO" and (args.vendor is not None or args.product is not None):
+            values["device"] = "CUSTOM"
+        return replace(settings, **values)
+
+    logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO, format="%(levelname)s: %(message)s")
+    def stop(_signum, _frame):
+        raise KeyboardInterrupt
+
+    signal.signal(signal.SIGTERM, stop)
+    try:
+        return run_display(args.config, overrides, test=args.test, dry_run=args.dry_run, once=args.once)
+    except KeyboardInterrupt:
+        return 0
+    except ValueError as error:
+        parser.error(str(error))
+    except OSError as error:
+        parser.exit(1, f"{error}\n")
+
+
+if __name__ == "__main__":
+    sys.exit(main())

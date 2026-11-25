@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=DC Cooler Display
+Comment=Configure CPU readings on a compatible cooler display
+Exec=dc-cooler-display-arch --gui
+Icon=utilities-system-monitor
+Terminal=false
+Categories=Settings;HardwareSettings;

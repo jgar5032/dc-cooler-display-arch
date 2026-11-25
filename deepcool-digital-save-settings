@@ -1,0 +1,25 @@
+#!/usr/bin/python3 -Es
+"""Read validated settings from stdin and write the service's settings file."""
+
+import os
+import pwd
+import sys
+
+from deepcool_digital.settings import CONFIG_PATH, MAX_SETTINGS_BYTES, decode_settings, save_settings
+
+
+def main():
+    if len(sys.argv) != 1:
+        raise ValueError("This helper accepts settings on standard input.")
+    if os.geteuid() != pwd.getpwnam("deepcool-digital").pw_uid:
+        raise ValueError("This helper must run as the DC Cooler Display service account.")
+
+    settings = decode_settings(sys.stdin.buffer.read(MAX_SETTINGS_BYTES + 1))
+    save_settings(CONFIG_PATH, settings)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (KeyError, OSError, ValueError, RecursionError) as error:
+        sys.exit(str(error))

@@ -1,0 +1,22 @@
+[Unit]
+Description=DC Cooler Display
+After=systemd-udevd.service systemd-tmpfiles-setup.service
+
+[Service]
+ExecStart=/usr/bin/deepcool-digital
+User=deepcool-digital
+Group=deepcool-digital
+Restart=on-failure
+RestartSec=3s
+Environment=PYTHONDONTWRITEBYTECODE=1
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_UNIX
+
+[Install]
+WantedBy=multi-user.target
